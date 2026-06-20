@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
+import TransitionProvider from "@/providers/TransitionProvider";
+import SmoothScroll from "@/components/SmoothScroll";
+import ThemeProvider from "@/providers/ThemeProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +31,20 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="opacity-0">
+        {" "}
+        <Navbar />
+        <div className="overflow-hidden red:bg-[#ede4dd] red:text-[#ff0001] dark:bg-[#000]  dark:text-white blue:text-[#0040ff] blue:bg-[#ffffff]">
+          {" "}
+          <ThemeProvider>
+            <TransitionProvider>
+              <main id="transition-target">
+                <SmoothScroll>{children}</SmoothScroll>
+              </main>
+            </TransitionProvider>
+          </ThemeProvider>
+        </div>
+      </body>
     </html>
   );
 }

@@ -1,8 +1,16 @@
 @import "tailwindcss";
+@custom-variant red (&:where([data-theme="red"] *));
+@custom-variant dark (&:where([data-theme="dark"] *));
+@custom-variant blue (&:where([data-theme="blue"] *));
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+::selection {
+  background-color: #ff0001;
+  color: #ede4dd;
 }
 
 @theme inline {
