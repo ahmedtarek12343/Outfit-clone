@@ -1,34 +1,244 @@
+/* ===========================================================================
+   globals.css — Tailwind v4 + the theme token system
+   ===========================================================================
+   Tailwind v4 has no tailwind.config.js. Everything is CSS-first:
+     @import "tailwindcss"  pulls in the engine
+     @theme                 declares design tokens AND generates utilities
+     @custom-variant        declares new variant prefixes
+   =========================================================================== */
+
 @import "tailwindcss";
-@custom-variant red (&:where([data-theme="red"] *));
+
+/* ---------------------------------------------------------------------------
+   1. THEME TOKENS
+   -------------------------------------------------------------------------
+   Declaring `--color-bg` inside @theme does two things at once:
+     a) defines the CSS variable
+     b) makes Tailwind emit utilities for it — `bg-bg`, `text-fg`, `border-muted`
+   The values point at *plain* custom properties (--c-bg) which we then swap
+   per theme below. That indirection is the whole trick: utilities compile once,
+   colours change at runtime with zero extra CSS and no JS re-render.
+   ------------------------------------------------------------------------- */
+@theme {
+  --color-bg: var(--c-bg);
+  --color-fg: var(--c-fg);
+  --color-accent: var(--c-accent);
+  --color-muted: var(--c-muted);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  /* Named easing curves, mirrored from lib/gsap.ts so CSS transitions on
+     hover states feel identical to the GSAP-driven motion. */
+  --ease-hop: cubic-bezier(0.9, 0, 0.1, 1);
+  --ease-glide: cubic-bezier(0.8, 0, 0.2, 1);
+  --ease-drift: cubic-bezier(0.25, 0, 0.35, 1);
+}
+
+/* ---------------------------------------------------------------------------
+   2. THE THEMES
+   -------------------------------------------------------------------------
+   `:root` carries the default so the page is styled correctly on the very
+   first paint even before the inline theme script runs (and if JS never runs
+   at all). Each [data-theme] block then overrides.
+   ------------------------------------------------------------------------- */
+:root,
+[data-theme="cream"] {
+  --c-bg: #ede4dd;
+  --c-fg: #ff0001;
+  --c-accent: #00ffff;
+  --c-muted: #c9b9ac;
+}
+
+[data-theme="dark"] {
+  --c-bg: #050505;
+  --c-fg: #ede4dd;
+  --c-accent: #ede4dd;
+  --c-muted: #3a3a3a;
+}
+
+[data-theme="blue"] {
+  --c-bg: #ffffff;
+  --c-fg: #0040ff;
+  --c-accent: #ffd900;
+  --c-muted: #bcc9f5;
+}
+
+/* Variants, in case a component needs a genuinely theme-specific rule that
+   tokens cannot express (e.g. a blend mode that only works on dark). */
+@custom-variant cream (&:where([data-theme="cream"] *));
 @custom-variant dark (&:where([data-theme="dark"] *));
 @custom-variant blue (&:where([data-theme="blue"] *));
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ---------------------------------------------------------------------------
+   3. BASE
+   ------------------------------------------------------------------------- */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 
-::selection {
-  background-color: #ff0001;
-  color: #ede4dd;
-}
+  html {
+    /* Lenis drives scrolling with transforms, so native smooth scrolling must
+       stay off or the two fight each other and scrolling feels rubbery.
+       NOTE (Next 16): Next no longer rewrites scroll-behavior during route
+       changes unless you opt in with data-scroll-behavior="smooth" on <html>.
+       We want Next's *instant* jump-to-top on navigation, so we leave both
+       off and let Lenis own scrolling completely. */
+    scroll-behavior: auto;
+    -webkit-text-size-adjust: 100%;
+  }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  body {
+    background-color: var(--c-bg);
+    color: var(--c-fg);
+    font-family: var(--font-sans);
+    /* Colour changes are CSS-transitioned so the theme switch is a smooth
+       cross-fade of the whole page rather than a hard cut. 0.6s matches the
+       curtain timing in TransitionProvider. */
+    transition:
+      background-color 0.6s var(--ease-glide),
+      color 0.6s var(--ease-glide);
+    overscroll-behavior-y: none;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Award-site typographic defaults: tight tracking, no orphan hyphens. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background-color: var(--c-fg);
+    color: var(--c-bg);
+  }
+
+  /* Hide the native cursor only where the custom cursor is active and the
+     device actually has a pointer. Touch devices keep everything default. */
+  @media (hover: hover) and (pointer: fine) {
+    body[data-cursor="on"],
+    body[data-cursor="on"] * {
+      cursor: none;
+    }
+  }
+
+  /* Focus ring that survives all three themes. */
+  :focus-visible {
+    outline: 2px solid var(--c-fg);
+    outline-offset: 3px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ---------------------------------------------------------------------------
+   4. UTILITIES
+   ------------------------------------------------------------------------- */
+@utility edge {
+  /* The standard page gutter, used by every section so everything aligns. */
+  padding-inline: clamp(1rem, 3vw, 2.5rem);
+}
+
+/* Masked-reveal helper. SplitText's `mask: "chars"` wraps each char in an
+   overflow-hidden span; for hand-rolled reveals (single lines, no split) this
+   utility does the same job. */
+@utility mask-line {
+  overflow: hidden;
+  display: block;
+}
+
+/* `will-change` is a promise to the browser, not a decoration. Applying it
+   permanently to many elements *hurts* — each one gets its own compositor
+   layer. This utility exists so it can be added and removed around a tween. */
+@utility gpu {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   5. KEYFRAMES
+   -------------------------------------------------------------------------
+   Infinite, non-interactive loops (marquees, spinning badges) are cheaper and
+   more robust in CSS than in JS: they keep running while the main thread is
+   busy, and they cost nothing when scrolled off-screen.
+   ------------------------------------------------------------------------- */
+@keyframes marquee-x {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    /* -50% because the track renders its children twice. */
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-marquee {
+  animation: marquee-x var(--marquee-duration, 28s) linear infinite;
+}
+
+.animate-marquee-reverse {
+  animation: marquee-x var(--marquee-duration, 28s) linear infinite reverse;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 12s linear infinite;
+}
+
+/* Pausing on hover is a small, cheap piece of polish reviewers always notice. */
+.marquee-group:hover .animate-marquee,
+.marquee-group:hover .animate-marquee-reverse {
+  animation-play-state: paused;
+}
+
+/* ---------------------------------------------------------------------------
+   6. LENIS
+   -------------------------------------------------------------------------
+   Lenis ships a stylesheet; these are the three rules that actually matter,
+   inlined so there is no extra request.
+   ------------------------------------------------------------------------- */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   7. REDUCED MOTION
+   -------------------------------------------------------------------------
+   Kill the decorative CSS loops outright. GSAP-driven reveals are handled in
+   JS (see prefersReducedMotion) because they must still END in the visible
+   state — blanket-disabling them would leave content stuck at opacity 0.
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-marquee-reverse,
+  .animate-spin-slow {
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
 }
