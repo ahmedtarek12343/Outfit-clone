@@ -5,7 +5,6 @@ import { useGSAP } from "@gsap/react";
 import {
   gsap,
   SplitText,
-  ScrollTrigger,
   registerGsap,
   prefersReducedMotion,
 } from "@/lib/gsap";
